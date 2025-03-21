@@ -1,68 +1,174 @@
+/* Root Variables for Theme */
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --primary-color: #007bff;
+  --secondary-color: #6c757d;
+  --background-color: #f4f6f9;
+  --text-color: #212529;
+  --border-radius: 10px;
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
+/* Global Styles */
 body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
   margin: 0;
+  padding: 0;
   display: flex;
-  place-items: center;
-  min-width: 320px;
+  justify-content: center;
+  align-items: center;
   min-height: 100vh;
+  text-align: center;
 }
 
+/* Container */
+.p-4 {
+  background: #fff;
+  padding: 2.5rem;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
+  max-width: 600px;
+  width: 90%;
+  transition: transform 0.2s ease-in-out;
+}
+
+.p-4:hover {
+  transform: scale(1.02);
+}
+
+/* Heading */
 h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+  font-size: 2.2rem;
+  font-weight: bold;
+  color: var(--primary-color);
+  margin-bottom: 1.2rem;
 }
 
+/* Video and Canvas Styling */
+.relative {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  margin: auto;
+}
+
+video, canvas {
+  width: 100%;
+  border-radius: var(--border-radius);
+  border: 3px solid var(--secondary-color);
+}
+
+canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* Input Field */
+input[type='text'] {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid var(--secondary-color);
+  border-radius: var(--border-radius);
+  margin-top: 12px;
+  font-size: 1rem;
+  transition: all 0.3s ease-in-out;
+}
+
+input[type='text']:focus {
+  border-color: var(--primary-color);
+  outline: none;
+  box-shadow: 0 0 8px rgba(0, 123, 255, 0.5);
+}
+
+/* Buttons */
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
+  padding: 12px 18px;
+  border: none;
+  border-radius: var(--border-radius);
+  font-size: 1rem;
   cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  transition: background 0.3s ease;
+  font-weight: 600;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
+button.bg-blue-500 {
+  background-color: var(--primary-color);
+  color: #fff;
+  box-shadow: var(--shadow);
+}
+
+button.bg-blue-500:hover {
+  background-color: #0056b3;
+}
+
+button.bg-red-500 {
+  background-color: #dc3545;
+  color: white;
+}
+
+button.bg-red-500:hover {
+  background-color: #b52a38;
+}
+
+button.bg-gray-500 {
+  background-color: var(--secondary-color);
+  color: white;
+}
+
+button.bg-gray-500:hover {
+  background-color: #545b62;
+}
+
+/* Saved Signs List */
+ul {
+  list-style: none;
+  padding: 0;
+  background: #e9ecef;
+  border-radius: var(--border-radius);
+  padding: 1.2rem;
+  box-shadow: var(--shadow);
+}
+
+ul h2 {
+  font-size: 1.3rem;
+  font-weight: bold;
+  margin-bottom: 12px;
+}
+
+li {
+  padding: 10px;
+  border-bottom: 1px solid #ccc;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.2s ease;
+  border-radius: var(--border-radius);
+}
+
+li:last-child {
+  border-bottom: none;
+}
+
+li:hover {
+  background: #dee2e6;
+  transform: scale(1.05);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .p-4 {
+    padding: 1.5rem;
   }
-  a:hover {
-    color: #747bff;
+
+  h1 {
+    font-size: 1.8rem;
   }
+
   button {
-    background-color: #f9f9f9;
+    width: 100%;
+  }
+
+  ul {
+    width: 100%;
   }
 }
