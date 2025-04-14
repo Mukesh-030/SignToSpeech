@@ -1,201 +1,231 @@
-  import React, { useEffect, useRef, useState } from "react";
-  import { Hands } from "@mediapipe/hands";
-  import { Camera } from "@mediapipe/camera_utils";
+import React, { useEffect, useRef, useState } from "react";
+import { Hands } from "@mediapipe/hands";
+import { Camera } from "@mediapipe/camera_utils";
 
-  const SignTrainer = () => {
-    const videoRef = useRef(null);
-    const canvasRef = useRef(null);
-    const [signs, setSigns] = useState([]); // Stores saved signs
-    const [currentSign, setCurrentSign] = useState(""); // Stores input value
-    const [lastLandmarks, setLastLandmarks] = useState(null); // Stores latest detected landmarks
-    const [selectedSign, setSelectedSign] = useState(null); // Stores currently displayed saved sign
+const SignTrainer = () => {
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const [signs, setSigns] = useState([]);
+  const [currentSign, setCurrentSign] = useState("");
+  const [lastLandmarks, setLastLandmarks] = useState(null);
+  const [voices, setVoices] = useState([]);
+  const [isTraining, setIsTraining] = useState(false); // State to track if training is active
+  const [camera, setCamera] = useState(null);
 
-    useEffect(() => {
-      if (!videoRef.current || !canvasRef.current) return;
+  useEffect(() => {
+    const loadVoices = () => {
+      const synthVoices = window.speechSynthesis.getVoices();
+      setVoices(synthVoices);
+    };
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+  }, []);
 
-      // Load saved signs from localStorage on mount
-      const savedSigns = JSON.parse(localStorage.getItem("signs")) || [];
-      setSigns(savedSigns);
+  useEffect(() => {
+    if (!videoRef.current || !canvasRef.current) return;
 
-      const hands = new Hands({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
-      });
+    const savedSigns = JSON.parse(localStorage.getItem("signs")) || [];
+    setSigns(savedSigns);
 
-      hands.setOptions({
-        maxNumHands: 2,
-        modelComplexity: 1,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5,
-      });
+    const hands = new Hands({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+    });
 
-      hands.onResults((results) => {
-        setLastLandmarks(results.multiHandLandmarks || null);
-        drawOnCanvas(results.multiHandLandmarks);
-      });
+    hands.setOptions({
+      maxNumHands: 2,
+      modelComplexity: 1,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5,
+    });
 
-      // Request access to the front camera
-      navigator.mediaDevices
-        .getUserMedia({ video: { facingMode: "user" } })
-        .then((stream) => {
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-          }
-        })
-        .catch((err) => console.error("Error accessing webcam:", err));
+    hands.onResults((results) => {
+      setLastLandmarks(results.multiHandLandmarks || null);
+      drawLiveLandmarks(results.multiHandLandmarks);
+    });
 
-      const camera = new Camera(videoRef.current, {
-        onFrame: async () => {
-          if (videoRef.current) {
-            await hands.send({ image: videoRef.current });
-          }
-        },
-        width: 640,
-        height: 480,
-      });
+    // Initialize the camera, but don't start it until the "Start Training" button is pressed.
+    const newCamera = new Camera(videoRef.current, {
+      onFrame: async () => {
+        if (videoRef.current && isTraining) {
+          await hands.send({ image: videoRef.current });
+        }
+      },
+      width: 640,
+      height: 480,
+    });
+    setCamera(newCamera);
 
-      camera.start();
-    }, []);
+    return () => {
+      if (camera) camera.stop(); // Cleanup camera when the component unmounts
+    };
+  }, [isTraining]);
 
-    // Function to draw hand landmarks on the canvas
-    const drawOnCanvas = (landmarks) => {
-      const canvasElement = canvasRef.current;
-      if (!canvasElement) return;
-      const canvasCtx = canvasElement.getContext("2d");
-      if (!canvasCtx) return;
+  const drawLiveLandmarks = (landmarks) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-      // Clear canvas before drawing
-      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.scale(-1, 1);
+    ctx.translate(-canvas.width, 0);
 
-      // Flip canvas horizontally
-      canvasCtx.save();
-      canvasCtx.scale(-1, 1);
-      canvasCtx.translate(-canvasElement.width, 0);
-
-      if (landmarks) {
-        landmarks.forEach((points) => {
-          points.forEach((point) => {
-            canvasCtx.beginPath();
-            canvasCtx.arc(point.x * canvasElement.width, point.y * canvasElement.height, 5, 0, 2 * Math.PI);
-            canvasCtx.fillStyle = selectedSign ? "blue" : "red"; // Blue for saved sign, Red for live detection
-            canvasCtx.fill();
-          });
+    if (landmarks) {
+      landmarks.forEach((points) => {
+        points.forEach((point) => {
+          ctx.beginPath();
+          ctx.arc(point.x * canvas.width, point.y * canvas.height, 5, 0, 2 * Math.PI);
+          ctx.fillStyle = "red";
+          ctx.fill();
         });
-      }
+      });
+    }
+    ctx.restore();
+  };
 
-      canvasCtx.restore();
-    };
+  const saveSign = () => {
+    if (currentSign.trim() && lastLandmarks) {
+      const signImage = captureSignImage();
+      const updatedSigns = [
+        ...signs,
+        { name: currentSign.trim(), landmarks: lastLandmarks, image: signImage },
+      ];
+      setSigns(updatedSigns);
+      localStorage.setItem("signs", JSON.stringify(updatedSigns));
+      speakText(`Saved ${currentSign.trim()} successfully!`);
+      setCurrentSign("");
+    }
+  };
 
-    // Function to save a sign along with detected landmarks
-    const saveSign = () => {
-      if (currentSign.trim() && lastLandmarks) {
-        const updatedSigns = [...signs, { name: currentSign.trim(), landmarks: lastLandmarks }];
-        setSigns(updatedSigns);
-        localStorage.setItem("signs", JSON.stringify(updatedSigns)); // Store in localStorage
-        setCurrentSign(""); // Clear input after saving
-      }
-    };
+  const captureSignImage = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+    return canvas.toDataURL(); // Captures the image from the canvas
+  };
 
-    // Function to continuously display a saved sign on the canvas
-    const showSavedSign = (sign) => {
-      setSelectedSign(sign); // Set the sign to be displayed continuously
-      drawOnCanvas(sign.landmarks); // Draw the sign immediately
-    };
+  const speakText = (text) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    const preferredVoice = voices.find(v => v.name.toLowerCase().includes("female") || v.name.toLowerCase().includes("google") || v.name.toLowerCase().includes("en-us"));
+    if (preferredVoice) {
+      utterance.voice = preferredVoice;
+    }
+    utterance.rate = 0.9;
+    speechSynthesis.speak(utterance);
+  };
 
-    // Function to stop displaying a saved sign
-    const clearDisplayedSign = () => {
-      setSelectedSign(null);
-    };
+  const deleteSign = (index) => {
+    const updatedSigns = signs.filter((_, i) => i !== index);
+    setSigns(updatedSigns);
+    localStorage.setItem("signs", JSON.stringify(updatedSigns));
+    speakText("Sign deleted successfully!");
+  };
 
-    // Function to clear all saved signs
-    const clearSigns = () => {
-      localStorage.removeItem("signs");
-      setSigns([]);
-      setSelectedSign(null);
-    };
+  const clearSigns = () => {
+    localStorage.removeItem("signs");
+    setSigns([]);
+    speakText("All signs cleared.");
+  };
 
-    // Continuously redraw the saved sign if selected
-    useEffect(() => {
-      if (selectedSign) {
-        const interval = setInterval(() => {
-          drawOnCanvas(selectedSign.landmarks);
-        }, 100); // Redraw every 100ms to keep it visible
-        return () => clearInterval(interval);
-      }
-    }, [selectedSign]);
+  const downloadSign = (image, signName) => {
+    const link = document.createElement('a');
+    link.href = image;
+    link.download = `${signName}.png`;  // Use the sign's name as the filename
+    link.click();
+  };
 
-    return (
-      <div className="p-4 flex flex-col items-center">
-        <h1 className="text-2xl font-bold mb-4">Train Your Custom Sign</h1>
+  const startTraining = () => {
+    setIsTraining(true);
+    camera.start(); // Start camera when training begins
+    speakText("Training started, camera is now active.");
+  };
 
-        {/* Video & Canvas Container */}
-        <div className="relative">
-          <video
-            ref={videoRef}
-            style={{ transform: "scaleX(-1)" }} // Flip video
-            className="border rounded-lg"
-            width="640"
-            height="480"
-            autoPlay
-            playsInline
-          ></video>
-          <canvas
-            ref={canvasRef}
-            width="640"
-            height="480"
-            className="absolute top-0 left-0"
-          ></canvas>
-        </div>
+  const stopTraining = () => {
+    setIsTraining(false);
+    camera.stop(); // Stop camera when training stops
+    speakText("Training stopped, camera is now inactive.");
+  };
 
-        {/* Input for sign name */}
-        <input
-          type="text"
-          placeholder="Enter sign meaning"
-          value={currentSign}
-          onChange={(e) => setCurrentSign(e.target.value)}
-          className="border p-2 mt-4"
-        />
+  return (
+    <div className="p-4 flex flex-col items-center">
+      <h1 className="text-2xl font-bold mb-4">Train Your Custom Sign</h1>
 
-        {/* Save and Clear Buttons */}
-        <div className="mt-2 flex gap-2">
-          <button onClick={saveSign} className="bg-blue-500 text-white px-4 py-2 rounded">
-            Save Sign
-          </button>
-          {signs.length > 0 && (
-            <button onClick={clearSigns} className="bg-red-500 text-white px-4 py-2 rounded">
-              Clear Signs
-            </button>
-          )}
-        </div>
+      <div className="relative">
+        <video
+          ref={videoRef}
+          style={{ transform: "scaleX(-1)" }}
+          className="border rounded-lg"
+          width="640"
+          height="480"
+          autoPlay
+          playsInline
+        ></video>
+        <canvas
+          ref={canvasRef}
+          width="640"
+          height="480"
+          className="absolute top-0 left-0"
+        ></canvas>
+      </div>
 
-        {/* Display saved signs */}
+      <input
+        type="text"
+        placeholder="Enter sign meaning"
+        value={currentSign}
+        onChange={(e) => setCurrentSign(e.target.value)}
+        className="border p-2 mt-4"
+      />
+
+      <div className="mt-2 flex gap-2">
+        <button onClick={saveSign} className="bg-blue-500 text-white px-4 py-2 rounded">
+          Save Sign
+        </button>
         {signs.length > 0 && (
-          <ul className="mt-4 border p-4 w-64 rounded bg-gray-100">
-            <h2 className="font-bold">Saved Signs:</h2>
-            {signs.map((sign, index) => (
-              <li
-                key={index}
-                className={`border-b p-2 last:border-0 cursor-pointer hover:bg-gray-200 ${
-                  selectedSign?.name === sign.name ? "bg-blue-200" : ""
-                }`}
-                onClick={() => showSavedSign(sign)}
-              >
-                {sign.name}
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {/* Close saved sign button */}
-        {selectedSign && (
-          <button
-            onClick={clearDisplayedSign}
-            className="bg-gray-500 text-white px-4 py-2 mt-2 rounded"
-          >
-            Close Saved Sign
+          <button onClick={clearSigns} className="bg-red-500 text-white px-4 py-2 rounded">
+            Clear Signs
           </button>
         )}
       </div>
-    );
-  };
 
-  export default SignTrainer;
+      <div className="mt-4 flex gap-4">
+        {!isTraining ? (
+          <button onClick={startTraining} className="bg-green-500 text-white px-4 py-2 rounded">
+            Start Training
+          </button>
+        ) : (
+          <button onClick={stopTraining} className="bg-yellow-500 text-white px-4 py-2 rounded">
+            Stop Training
+          </button>
+        )}
+      </div>
+
+      {signs.length > 0 && (
+        <div className="mt-4 w-full max-w-md p-4 bg-gray-100 border rounded">
+          <h2 className="font-bold mb-2">Saved Signs:</h2>
+          {signs.map((sign, index) => (
+            <div key={index} className="flex justify-between items-center border-b p-2 last:border-0 hover:bg-gray-200">
+              <div className="flex items-center">
+                <img src={sign.image} alt={sign.name} width="50" height="50" className="mr-2" />
+                <span className="cursor-pointer text-blue-700 hover:underline">{sign.name}</span>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => speakText(sign.name)} className="ml-2 text-blue-600 hover:text-blue-800" title="Play Sign Name">
+                  🔊
+                </button>
+                <button onClick={() => deleteSign(index)} className="ml-2 text-red-600 hover:text-red-800" title="Delete Sign">
+                  ❌
+                </button>
+                {/* Download Button */}
+                <button onClick={() => downloadSign(sign.image, sign.name)} className="ml-2 text-green-600 hover:text-green-800" title="Download Sign Image">
+                  📥
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default SignTrainer;

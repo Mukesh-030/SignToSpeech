@@ -6,6 +6,8 @@
   --text-color: #212529;
   --border-radius: 10px;
   --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --image-border-radius: 8px;
+  --image-padding: 8px;
 }
 
 /* Global Styles */
@@ -28,7 +30,7 @@ body {
   padding: 2.5rem;
   border-radius: var(--border-radius);
   box-shadow: var(--shadow);
-  max-width: 600px;
+  max-width: 900px;
   width: 90%;
   transition: transform 0.2s ease-in-out;
 }
@@ -129,20 +131,36 @@ ul {
   border-radius: var(--border-radius);
   padding: 1.2rem;
   box-shadow: var(--shadow);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
 }
 
 ul h2 {
   font-size: 1.3rem;
   font-weight: bold;
   margin-bottom: 12px;
+  width: 100%;
 }
 
 li {
+  width: calc(33.33% - 12px); /* 3 items per row */
   padding: 10px;
-  border-bottom: 1px solid #ccc;
+  border: 1px solid #ccc;
+  border-radius: var(--border-radius);
   cursor: pointer;
   transition: background 0.3s ease, transform 0.2s ease;
-  border-radius: var(--border-radius);
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+li img {
+  width: 100%;
+  height: auto;
+  border-radius: var(--image-border-radius);
+  object-fit: cover;
+  box-sizing: border-box;
 }
 
 li:last-child {
@@ -152,6 +170,23 @@ li:last-child {
 li:hover {
   background: #dee2e6;
   transform: scale(1.05);
+}
+
+/* Sign Name and Action Buttons */
+li .sign-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+li .sign-actions button {
+  margin: 0 5px;
+  padding: 5px;
+  font-size: 14px;
+}
+
+li .sign-actions button:hover {
+  background-color: #f1f1f1;
 }
 
 /* Responsive Design */
@@ -170,5 +205,11 @@ li:hover {
 
   ul {
     width: 100%;
+    padding: 1rem;
+  }
+
+  li {
+    width: 100%; /* Stack items vertically on small screens */
+    margin-bottom: 16px;
   }
 }
