@@ -217,7 +217,7 @@ const SignTrainer = () => {
           {signs.map((sign, index) => (
             <div key={index} className="flex justify-between items-center border-b p-2 last:border-0 hover:bg-gray-200">
               <div className="flex items-center">
-                <img src={sign.image} alt={sign.name} width="50" height="50" className="mr-2" />
+                <img src={sign.image} alt={sign.name} width="150" height="150" className="mr-3" />
                 <span className="cursor-pointer text-blue-700 hover:underline">{sign.name}</span>
               </div>
               <div className="flex gap-2">
