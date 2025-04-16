@@ -15,7 +15,7 @@ const SignTrainer = () => {
   const [isTraining, setIsTraining] = useState(false);
   const [isDetecting, setIsDetecting] = useState(false);
   const [detectedSign, setDetectedSign] = useState("");
-  const lastAnnouncedRef = useRef(""); // Ref to store last announced sign
+  const lastAnnouncedRef = useRef("");
 
   useEffect(() => {
     const loadVoices = () => {
@@ -72,6 +72,7 @@ const SignTrainer = () => {
     ctx.save();
     ctx.scale(-1, 1);
     ctx.translate(-canvas.width, 0);
+
     if (landmarks) {
       landmarks.forEach(points => {
         points.forEach(point => {
@@ -82,6 +83,13 @@ const SignTrainer = () => {
         });
       });
     }
+
+    const boxSize = 275;
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    ctx.strokeStyle = "lime";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(centerX - boxSize / 2, centerY - boxSize / 2, boxSize, boxSize);
     ctx.restore();
   };
 
@@ -121,7 +129,7 @@ const SignTrainer = () => {
   const startDetection = () => {
     setIsTraining(false);
     setIsDetecting(true);
-    lastAnnouncedRef.current = ""; // Reset last detected
+    lastAnnouncedRef.current = "";
     startCamera();
     speakText("Detection started, show your sign!");
   };
@@ -139,7 +147,7 @@ const SignTrainer = () => {
       const image = captureSignImage();
       const updatedSigns = [
         ...signs,
-        { name: currentSign.trim(), landmarks: lastLandmarks[0], image },
+        { name: currentSign.trim(), landmarks: normalizeLandmarks(lastLandmarks[0]), image },
       ];
       setSigns(updatedSigns);
       localStorage.setItem("signs", JSON.stringify(updatedSigns));
@@ -161,7 +169,7 @@ const SignTrainer = () => {
       utterance.voice = localVoice || voices[0];
     }
     utterance.rate = 0.9;
-    window.speechSynthesis.cancel();  // Cancel previous speaking
+    window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utterance);
   };
 
@@ -185,12 +193,23 @@ const SignTrainer = () => {
     link.click();
   };
 
-  const handleDetection = (landmarks) => {
-    if (!landmarks || !landmarks[0]) return;
+  const normalizeLandmarks = (landmarks) => {
+    if (!landmarks || landmarks.length === 0) return [];
+    const center = landmarks[0];
+    return landmarks.map(point => ({
+      x: point.x - center.x,
+      y: point.y - center.y,
+      z: point.z - center.z
+    }));
+  };
 
+  const handleDetection = (landmarks) => {
+    if (!landmarks[0]) return;
+    const normalizedLive = normalizeLandmarks(landmarks[0]);
     let matched = false;
+
     for (const sign of signs) {
-      if (compareLandmarks(sign.landmarks, landmarks[0])) {
+      if (compareLandmarks(sign.landmarks, normalizedLive)) {
         if (lastAnnouncedRef.current !== sign.name) {
           lastAnnouncedRef.current = sign.name;
           setDetectedSign(sign.name);
@@ -201,11 +220,9 @@ const SignTrainer = () => {
       }
     }
 
-    if (!matched) {
-      if (lastAnnouncedRef.current !== "No sign detected") {
-        lastAnnouncedRef.current = "No sign detected";
-        setDetectedSign("No sign detected");
-      }
+    if (!matched && lastAnnouncedRef.current !== "No sign detected") {
+      lastAnnouncedRef.current = "No sign detected";
+      setDetectedSign("No sign detected");
     }
   };
 
@@ -218,28 +235,15 @@ const SignTrainer = () => {
       const dz = stored[i].z - live[i].z;
       totalDist += Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
-    return totalDist / stored.length < 0.1;
+    return totalDist / stored.length < 0.04; // Stricter for accuracy
   };
 
   return (
     <div className="p-4 flex flex-col items-center">
       <h1 className="text-2xl font-bold mb-4">Train & Detect Custom Signs</h1>
       <div className="relative">
-        <video
-          ref={videoRef}
-          style={{ transform: "scaleX(-1)" }}
-          width="640"
-          height="480"
-          autoPlay
-          playsInline
-          className="border rounded-lg"
-        />
-        <canvas
-          ref={canvasRef}
-          width="640"
-          height="480"
-          className="absolute top-0 left-0"
-        />
+        <video ref={videoRef} style={{ transform: "scaleX(-1)" }} width="640" height="480" autoPlay playsInline className="border rounded-lg" />
+        <canvas ref={canvasRef} width="640" height="480" className="absolute top-0 left-0" />
       </div>
 
       {isDetecting && detectedSign && (
@@ -257,34 +261,21 @@ const SignTrainer = () => {
       />
 
       <div className="mt-2 flex gap-2">
-        <button onClick={saveSign} className="bg-blue-500 text-white px-4 py-2 rounded">
-          Save Sign
-        </button>
-        {signs.length > 0 && (
-          <button onClick={clearSigns} className="bg-red-500 text-white px-4 py-2 rounded">
-            Clear Signs
-          </button>
-        )}
+        <button onClick={saveSign} className="bg-blue-500 text-white px-4 py-2 rounded">Save Sign</button>
+        {signs.length > 0 && <button onClick={clearSigns} className="bg-red-500 text-white px-4 py-2 rounded">Clear Signs</button>}
       </div>
 
       <div className="mt-4 flex gap-4">
         {!isTraining ? (
-          <button onClick={startTraining} className="bg-green-500 text-white px-4 py-2 rounded">
-            Start Training
-          </button>
+          <button onClick={startTraining} className="bg-green-500 text-white px-4 py-2 rounded">Start Training</button>
         ) : (
-          <button onClick={stopTraining} className="bg-yellow-500 text-white px-4 py-2 rounded">
-            Stop Training
-          </button>
+          <button onClick={stopTraining} className="bg-yellow-500 text-white px-4 py-2 rounded">Stop Training</button>
         )}
+
         {!isDetecting ? (
-          <button onClick={startDetection} className="bg-purple-500 text-white px-4 py-2 rounded">
-            Start Detecting
-          </button>
+          <button onClick={startDetection} className="bg-purple-500 text-white px-4 py-2 rounded">Start Detecting</button>
         ) : (
-          <button onClick={stopDetection} className="bg-orange-500 text-white px-4 py-2 rounded">
-            Stop Detecting
-          </button>
+          <button onClick={stopDetection} className="bg-orange-500 text-white px-4 py-2 rounded">Stop Detecting</button>
         )}
       </div>
 
